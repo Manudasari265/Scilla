@@ -78,7 +78,7 @@ async fn request_sol_airdrop(ctx: &ScillaContext) -> anyhow::Result<()> {
             println!(
                 "{} {}",
                 style("Airdrop requested successfully!").green().bold(),
-                style(format!("Signature: {}", signature)).cyan()
+                style(format!("Signature: {signature}")).cyan()
             );
         }
         Err(err) => {
@@ -99,7 +99,7 @@ async fn fetch_acc_data(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::Result<
     println!(
         "{}\n{}",
         style("Account info:").green().bold(),
-        style(format!("{:#?}", acc)).cyan()
+        style(format!("{acc:#?}")).cyan()
     );
 
     Ok(())
@@ -116,7 +116,7 @@ async fn fetch_account_balance(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::
     println!(
         "{}\n{}",
         style("Account balance in SOL:").green().bold(),
-        style(format!("{:#?}", acc_balance)).cyan()
+        style(format!("{acc_balance:#?}")).cyan()
     );
 
     Ok(())
