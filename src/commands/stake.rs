@@ -1,17 +1,21 @@
 use {
     crate::{
         commands::CommandExec,
-        constants::{ACTIVE_STAKE_EPOCH_BOUND, DEFAULT_EPOCH_LIMIT, STAKE_HISTORY_SYSVAR_ADDR},
+        constants::{
+            ACTIVE_STAKE_EPOCH_BOUND, DEFAULT_EPOCH_LIMIT, LAMPORTS_PER_SOL,
+            STAKE_HISTORY_SYSVAR_ADDR,
+        },
         context::ScillaContext,
         error::ScillaResult,
         misc::helpers::{
             SolAmount, bincode_deserialize, bincode_deserialize_with_limit, build_and_send_tx,
-            fetch_account_with_epoch, lamports_to_sol, read_keypair_from_path, sol_to_lamports,
+            check_minimum_balance, fetch_account_with_epoch, lamports_to_sol,
+            read_keypair_from_path, sol_to_lamports,
         },
         prompt::prompt_data,
         ui::show_spinner,
     },
-    anyhow::bail,
+    anyhow::{anyhow, bail},
     comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     solana_keypair::Signer,
@@ -25,10 +29,10 @@ use {
         instruction::{self, deactivate_stake, merge, withdraw},
         program::id as stake_program_id,
         stake_history::{StakeHistory, StakeHistoryEntry},
-        state::StakeStateV2,
+        state::{Authorized, Lockup, Meta, StakeActivationStatus, StakeStateV2},
     },
-    std::{fmt, ops::Div, path::PathBuf},
     solana_sysvar::clock,
+    std::{fmt, ops::Div, path::PathBuf},
 };
 
 /// Commands related to staking operations
@@ -84,10 +88,10 @@ impl StakeCommand {
             StakeCommand::Create => {
                 let stake_account_keypair_path: PathBuf =
                     prompt_data("Enter Stake Account Keypair: ")?;
-                let amount_to_stake: f64 = prompt_data("Enter amount to stake (in SOL):")?;
+                let amount_to_stake: SolAmount = prompt_data("Enter amount to stake (in SOL):")?;
 
                 show_spinner(
-                    self.description(),
+                    self.spinner_msg(),
                     process_create_stake_account(ctx, &stake_account_keypair_path, amount_to_stake),
                 )
                 .await?;
@@ -97,12 +101,8 @@ impl StakeCommand {
                 let vote_account_pubkey: Pubkey = prompt_data("Enter Vote Account Pubkey: ")?;
 
                 show_spinner(
-                    self.description(),
-                    delegate_stake_account(
-                        ctx,
-                        &stake_account_pubkey,
-                        &vote_account_pubkey,
-                    ),
+                    self.spinner_msg(),
+                    delegate_stake_account(ctx, &stake_account_pubkey, &vote_account_pubkey),
                 )
                 .await?;
             }
@@ -180,16 +180,16 @@ impl StakeCommand {
 
 async fn process_create_stake_account(
     ctx: &ScillaContext,
-    stake_account_keypair_path: PathBuf,
+    stake_account_keypair_path: &PathBuf,
     amount_to_stake: SolAmount,
 ) -> anyhow::Result<()> {
-    let stake_account_keypair = read_keypair_from_path(&stake_account_keypair_path)?;
+    let stake_account_keypair = read_keypair_from_path(stake_account_keypair_path)?;
     let stake_account_pubkey = stake_account_keypair.pubkey();
     let withdraw_authority_pubkey: &Pubkey = ctx.pubkey();
     let stake_authority_pubkey: &Pubkey = ctx.pubkey();
     let fee_payer_pubkey: &Pubkey = ctx.pubkey();
 
-    let lamports: u64 = amount_to_stake.to_lamports();
+    let lamports = amount_to_stake.to_lamports();
 
     let minimum_rent_for_balance = ctx
         .rpc()
@@ -1041,10 +1041,3 @@ async fn process_stake_history(ctx: &ScillaContext) -> anyhow::Result<()> {
 
     Ok(())
 }
-
-
-
-
-
-
-       

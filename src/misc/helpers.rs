@@ -14,7 +14,6 @@ use {
     tokio::try_join,
 };
 
-
 pub fn trim_and_parse<T: FromStr>(s: &str, field_name: &str) -> anyhow::Result<Option<T>> {
     let trimmed = s.trim();
     if trimmed.is_empty() {
