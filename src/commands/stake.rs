@@ -1,7 +1,7 @@
 use {
     crate::{
         commands::CommandExec,
-        constants::ACTIVE_STAKE_EPOCH_BOUND,
+        constants::{ACTIVE_STAKE_EPOCH_BOUND, DEFAULT_EPOCH_LIMIT, STAKE_HISTORY_SYSVAR_ADDR},
         context::ScillaContext,
         error::ScillaResult,
         misc::helpers::{
@@ -12,11 +12,14 @@ use {
         ui::show_spinner,
     },
     anyhow::bail,
+    bincode::Options,
+    comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     solana_pubkey::Pubkey,
     solana_stake_interface::{
         instruction::{deactivate_stake, withdraw},
         program::id as stake_program_id,
+        stake_history::{StakeHistory, StakeHistoryEntry},
         state::StakeStateV2,
     },
     std::fmt,
@@ -98,7 +101,10 @@ impl StakeCommand {
             StakeCommand::Merge => todo!(),
             StakeCommand::Split => todo!(),
             StakeCommand::Show => todo!(),
-            StakeCommand::History => todo!(),
+            StakeCommand::History => {
+                show_spinner(self.spinner_msg(), process_stake_history(ctx)).await?;
+            }
+
             StakeCommand::GoBack => return Ok(CommandExec::GoBack),
         }
 
@@ -247,6 +253,51 @@ async fn process_withdraw_stake(
         style(format!("Amount: {amount_sol} SOL")).cyan(),
         style(format!("Signature: {signature}")).cyan()
     );
+
+    Ok(())
+}
+
+async fn process_stake_history(ctx: &ScillaContext) -> anyhow::Result<()> {
+    let stake_history_sysvar = Pubkey::from_str_const(STAKE_HISTORY_SYSVAR_ADDR);
+
+    let account = ctx.rpc().get_account(&stake_history_sysvar).await?;
+
+    let stake_history: StakeHistory = bincode::options()
+        .with_fixint_encoding()
+        .with_limit(account.data.len() as u64)
+        .deserialize(&account.data)
+        .map_err(|e| anyhow::anyhow!("Failed to deserialize StakeHistory: {}", e))?;
+
+    if stake_history.is_empty() {
+        println!("\n{}", style("No stake history available").yellow());
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL).set_header(vec![
+        Cell::new("Epoch").add_attribute(comfy_table::Attribute::Bold),
+        Cell::new("Effective Stake").add_attribute(comfy_table::Attribute::Bold),
+        Cell::new("Activating Stake").add_attribute(comfy_table::Attribute::Bold),
+        Cell::new("Deactivating Stake").add_attribute(comfy_table::Attribute::Bold),
+    ]);
+
+    for (epoch, entry) in stake_history.iter().take(DEFAULT_EPOCH_LIMIT) {
+        let StakeHistoryEntry {
+            effective,
+            activating,
+            deactivating,
+        } = entry;
+
+        table.add_row(vec![
+            Cell::new(epoch.to_string()),
+            Cell::new(lamports_to_sol(*effective)),
+            Cell::new(lamports_to_sol(*activating)),
+            Cell::new(lamports_to_sol(*deactivating)),
+        ]);
+    }
+
+    println!("\n{}", style("CLUSTER STAKE HISTORY").green().bold());
+    println!("{}", table);
 
     Ok(())
 }
