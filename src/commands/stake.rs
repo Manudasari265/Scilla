@@ -247,13 +247,13 @@ async fn process_create_stake_account(
     };
 
     let stake_state: StakeStateV2 = bincode::deserialize(&stake_account.data)
-        .map_err(|err| anyhow!("Unable to deserialize stake state: {}", err))?;
+        .map_err(|e| anyhow!("Unable to deserialize stake state: {}", e))?;
 
     let stake_history: StakeHistory = bincode::deserialize(&stake_history_account.data)
-        .map_err(|err| anyhow!("Failed to deserialize stake history: {}", err))?;
+        .map_err(|e| anyhow!("Failed to deserialize stake history: {}", e))?;
 
     let clock: Clock = bincode::deserialize(&clock_account.data)
-        .map_err(|err| anyhow!("Unable to deserealize clock: {}", err))?;
+        .map_err(|e| anyhow!("Unable to deserealize clock: {}", e))?;
 
     let current_epoch = clock.epoch;
 
@@ -464,40 +464,26 @@ async fn delegate_stake_account(
         .get_multiple_accounts(&[*stake_account_pubkey, stake_history::id(), clock::id()])
         .await?;
 
-    let stake_account = match accounts.first() {
-        Some(account) => match account {
-            Some(data) => data,
-            None => bail!("Failed to get stake account data"),
-        },
-        None => bail!("Failed to get stake account"),
+    let Some(Some(stake_account)) = accounts.first() else {
+        bail!("Failed to fetch stake account");
     };
 
-    let stake_history_account = match accounts.get(1) {
-        Some(account) => match account {
-            Some(data) => data,
-            None => {
-                bail!("Unable to fetch stake history account data");
-            }
-        },
-        None => return Err(anyhow::anyhow!("Unable to get stake history account")),
+    let Some(Some(stake_history_account)) = accounts.get(1) else {
+        bail!("Failed to fetch stake history account");
     };
 
-    let clock_account = match accounts.get(2) {
-        Some(account) => match account {
-            Some(data) => data,
-            None => bail!("Failed to fetch clock account data"),
-        },
-        None => bail!("Unable to fetch clock account"),
+    let Some(Some(clock_account)) = accounts.get(2) else {
+        bail!("Failed to fetch clock account");
     };
 
     let stake_state: StakeStateV2 = bincode::deserialize(&stake_account.data)
         .map_err(|e| anyhow!("Failed to deserialize stake state: {}", e))?;
 
     let stake_history: StakeHistory = bincode::deserialize(&stake_history_account.data)
-        .map_err(|err| anyhow!("Failed to deserialize stake history: {}", err))?;
+        .map_err(|e| anyhow!("Failed to deserialize stake history: {}", e))?;
 
     let clock: Clock = bincode::deserialize(&clock_account.data)
-        .map_err(|err| anyhow!("Unable to deserealize clock: {}", err))?;
+        .map_err(|e| anyhow!("Unable to deserealize clock: {}", e))?;
 
     // New Stake Account Info Table
     let current_epoch = clock.epoch;
