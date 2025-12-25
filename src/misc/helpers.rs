@@ -1,6 +1,7 @@
 use {
     crate::{ScillaContext, constants::LAMPORTS_PER_SOL},
-    anyhow::{anyhow, bail},
+    anyhow::{Context, anyhow, bail},
+    bincode::Options,
     solana_account::Account,
     solana_epoch_info::EpochInfo,
     solana_instruction::Instruction,
@@ -126,6 +127,28 @@ pub async fn fetch_account_with_epoch(
                 .map_err(anyhow::Error::from)
         }
     )
+}
+
+/// Generic helper to deserialize bincode data with consistent error
+/// context
+pub fn bincode_deserialize<T>(data: &[u8], ctx: &str) -> anyhow::Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    bincode::deserialize::<T>(data).with_context(|| format!("Failed to deserialize {}", ctx))
+}
+
+/// Generic helper to deserialize bincode data with limit and proper error
+/// context
+pub fn bincode_deserialize_with_limit<T>(limit: u64, data: &[u8], ctx: &str) -> anyhow::Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    bincode::options()
+        .with_fixint_encoding()
+        .with_limit(limit)
+        .deserialize::<T>(data)
+        .with_context(|| format!("Failed to deserialize {}", ctx))
 }
 
 #[cfg(test)]

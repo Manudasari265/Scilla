@@ -3,7 +3,7 @@ use {
         commands::CommandExec,
         context::ScillaContext,
         error::ScillaResult,
-        misc::helpers::lamports_to_sol,
+        misc::helpers::{bincode_deserialize, lamports_to_sol},
         prompt::prompt_data,
         ui::{print_error, show_spinner},
     },
@@ -249,8 +249,7 @@ async fn fetch_largest_accounts(ctx: &ScillaContext) -> anyhow::Result<()> {
 async fn fetch_nonce_account(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::Result<()> {
     let account = ctx.rpc().get_account(pubkey).await?;
 
-    let versions = bincode::deserialize::<Versions>(&account.data)
-        .map_err(|e| anyhow::anyhow!("Failed to deserialize nonce account data: {e}"))?;
+    let versions = bincode_deserialize::<Versions>(&account.data, "nonce account data")?;
 
     let solana_nonce::state::State::Initialized(data) = versions.state() else {
         bail!("This account is not an initialized nonce account");

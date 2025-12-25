@@ -5,14 +5,13 @@ use {
         context::ScillaContext,
         error::ScillaResult,
         misc::helpers::{
-            SolAmount, build_and_send_tx, fetch_account_with_epoch, lamports_to_sol,
-            sol_to_lamports,
+            SolAmount, bincode_deserialize, bincode_deserialize_with_limit, build_and_send_tx,
+            fetch_account_with_epoch, lamports_to_sol, sol_to_lamports,
         },
         prompt::prompt_data,
         ui::show_spinner,
     },
     anyhow::bail,
-    bincode::Options,
     comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     solana_pubkey::Pubkey,
@@ -122,8 +121,7 @@ async fn process_deactivate_stake_account(
         bail!("Account is not owned by the stake program");
     }
 
-    let stake_state: StakeStateV2 = bincode::deserialize(&account.data)
-        .map_err(|e| anyhow::anyhow!("Failed to deserialize stake account: {e}"))?;
+    let stake_state: StakeStateV2 = bincode_deserialize(&account.data, "stake account data")?;
 
     match stake_state {
         StakeStateV2::Stake(meta, stake, _) => {
@@ -179,8 +177,7 @@ async fn process_withdraw_stake(
         bail!("Account is not owned by the stake program");
     }
 
-    let stake_state: StakeStateV2 = bincode::deserialize(&account.data)
-        .map_err(|e| anyhow::anyhow!("Failed to deserialize stake account: {e}"))?;
+    let stake_state: StakeStateV2 = bincode_deserialize(&account.data, "stake account data")?;
 
     match stake_state {
         StakeStateV2::Stake(meta, stake, _) => {
@@ -262,11 +259,8 @@ async fn process_stake_history(ctx: &ScillaContext) -> anyhow::Result<()> {
 
     let account = ctx.rpc().get_account(&stake_history_sysvar).await?;
 
-    let stake_history: StakeHistory = bincode::options()
-        .with_fixint_encoding()
-        .with_limit(account.data.len() as u64)
-        .deserialize(&account.data)
-        .map_err(|e| anyhow::anyhow!("Failed to deserialize StakeHistory: {}", e))?;
+    let stake_history: StakeHistory =
+        bincode_deserialize_with_limit(account.data.len() as u64, &account.data, "stake history")?;
 
     if stake_history.is_empty() {
         println!("\n{}", style("No stake history available").yellow());
