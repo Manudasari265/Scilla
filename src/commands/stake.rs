@@ -106,7 +106,7 @@ impl StakeCommand {
             StakeCommand::Delegate => {
                 let stake_account_pubkey: Pubkey = prompt_data("Enter Stake Account Pubkey: ")?;
                 let vote_account_pubkey: Pubkey = prompt_data("Enter Vote Account Pubkey: ")?;
-                let stake_authorit_keypair_path: PathBuf =
+                let stake_authority_keypair_path: PathBuf =
                     prompt_data("Enter Stake Authority Keypair Path: ")?;
 
                 show_spinner(
@@ -115,7 +115,7 @@ impl StakeCommand {
                         ctx,
                         &stake_account_pubkey,
                         &vote_account_pubkey,
-                        stake_authorit_keypair_path,
+                        stake_authority_keypair_path,
                     ),
                 )
                 .await?;
@@ -194,7 +194,7 @@ impl StakeCommand {
 
 async fn process_create_stake_account(
     ctx: &ScillaContext,
-    stake_account_keypair_path: &PathBuf,
+    stake_account_keypair_path: PathBuf,
     amount_to_stake: SolAmount,
     withdraw_authority_keypair_path: PathBuf,
 ) -> anyhow::Result<()> {
@@ -254,14 +254,12 @@ async fn process_create_stake_account(
         bail!("Failed to get stake account");
     };
 
-    let stake_state: StakeStateV2 = bincode::deserialize(&stake_account.data)
-        .map_err(|e| anyhow!("Unable to deserialize stake state: {}", e))?;
+    let stake_state: StakeStateV2 = bincode_deserialize(&stake_account.data, "stake account data")?;
 
-    let stake_history: StakeHistory = bincode::deserialize(&stake_history_account.data)
-        .map_err(|e| anyhow!("Failed to deserialize stake history: {}", e))?;
+    let stake_history: StakeHistory =
+        bincode_deserialize(&stake_history_account.data, "stake history data")?;
 
-    let clock: Clock = bincode::deserialize(&clock_account.data)
-        .map_err(|e| anyhow!("Unable to deserealize clock: {}", e))?;
+    let clock: Clock = bincode_deserialize(&clock_account.data, "clock account data")?;
 
     let current_epoch = clock.epoch;
 
@@ -483,14 +481,12 @@ async fn delegate_stake_account(
         bail!("Failed to fetch clock account");
     };
 
-    let stake_state: StakeStateV2 = bincode::deserialize(&stake_account.data)
-        .map_err(|e| anyhow!("Failed to deserialize stake state: {}", e))?;
+    let stake_state: StakeStateV2 = bincode_deserialize(&stake_account.data, "stake account data")?;
 
-    let stake_history: StakeHistory = bincode::deserialize(&stake_history_account.data)
-        .map_err(|e| anyhow!("Failed to deserialize stake history: {}", e))?;
+    let stake_history: StakeHistory =
+        bincode_deserialize(&stake_history_account.data, "stake history data")?;
 
-    let clock: Clock = bincode::deserialize(&clock_account.data)
-        .map_err(|e| anyhow!("Unable to deserealize clock: {}", e))?;
+    let clock: Clock = bincode_deserialize(&clock_account.data, "clock account data")?;
 
     // New Stake Account Info Table
     let current_epoch = clock.epoch;
